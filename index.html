@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEIASTREAK</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body data-theme="evangelion" data-mode="dark">
+
+  <!-- ═══ Landing Page ═══ -->
+  <div class="landing-overlay" id="landingOverlay">
+    <div class="landing-bg-orbs">
+      <div class="bg-orb orb1"></div>
+      <div class="bg-orb orb2"></div>
+    </div>
+    <div class="landing-content">
+      <div class="landing-logo">
+        <span class="landing-icon">&#9889;</span>
+        <h1 class="landing-title">SEIASTREAK</h1>
+      </div>
+      <p class="landing-tagline">Lock in. Level up. Every single day.</p>
+      <button class="landing-enter-btn" id="landingEnterBtn">
+        <span class="enter-text">Lock In</span>
+        <span class="enter-arrow">&#8594;</span>
+      </button>
+      <p class="landing-sub">Your mission control awaits.</p>
+    </div>
+  </div>
+
+  <!-- Animated background -->
+  <div class="bg-layer" id="bgLayer">
+    <div class="bg-orb orb1"></div>
+    <div class="bg-orb orb2"></div>
+    <div class="bg-orb orb3"></div>
+    <canvas id="starfield"></canvas>
+  </div>
+
+  <!-- App Shell -->
+  <div class="app-shell" id="appShell" style="opacity:0">
+
+    <!-- Sidebar Nav -->
+    <nav class="sidebar glass">
+      <div class="logo">
+        <span class="logo-icon">&#9889;</span>
+        <span class="logo-text">SEIASTREAK</span>
+      </div>
+      <ul class="nav-links">
+        <li class="nav-item active" data-section="dashboard">
+          <span class="nav-icon">&#127968;</span>
+          <span class="nav-label">Dashboard</span>
+        </li>
+        <li class="nav-item" data-section="calendar">
+          <span class="nav-icon">&#128197;</span>
+          <span class="nav-label">Calendar</span>
+        </li>
+        <li class="nav-item" data-section="productivity">
+          <span class="nav-icon">&#9889;</span>
+          <span class="nav-label">Protocol</span>
+        </li>
+        <li class="nav-item" data-section="study">
+          <span class="nav-icon">&#9749;</span>
+          <span class="nav-label">Study Mode</span>
+        </li>
+        <li class="nav-item" data-section="settings">
+          <span class="nav-icon">&#127912;</span>
+          <span class="nav-label">Themes</span>
+        </li>
+      </ul>
+      <button class="mode-toggle" id="modeToggle" title="Toggle light/dark mode">
+        <span class="mode-icon" id="modeIcon">&#9728;&#65039;</span>
+      </button>
+      <div class="sidebar-streak">
+        <div class="streak-fire">&#128293;</div>
+        <div class="streak-count" id="sidebarStreak">0</div>
+        <div class="streak-label">day streak</div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- ═══════════════ DASHBOARD ═══════════════ -->
+      <section class="section active" id="section-dashboard">
+        <div class="section-header">
+          <h1 class="section-title">Mission Control</h1>
+          <div class="date-display" id="dashDate"></div>
+        </div>
+
+        <div class="dashboard-grid">
+          <!-- Streak Card -->
+          <div class="glass-card streak-card">
+            <div class="card-label">Current Streak</div>
+            <div class="streak-display">
+              <span class="streak-num" id="dashStreakNum">0</span>
+              <span class="streak-unit">days</span>
+            </div>
+            <div class="streak-flames" id="streakFlames"></div>
+            <div class="streak-message" id="streakMessage">Start your streak today!</div>
+          </div>
+
+          <!-- Today's Schedule -->
+          <div class="glass-card today-card">
+            <div class="card-label">Today's Mission</div>
+            <div class="today-schedule" id="todaySchedule">
+              <div class="empty-state">No tasks scheduled. Add via Calendar &#8594;</div>
+            </div>
+            <button class="btn-glass" id="checkInBtn">&#10003; Daily Check-In</button>
+          </div>
+
+          <!-- Productivity Ring -->
+          <div class="glass-card ring-card">
+            <div class="card-label">Weekly Sync</div>
+            <div class="weekly-rings" id="weeklyRings"></div>
+            <div class="week-avg" id="weekAvg">Avg: &#8212;</div>
+          </div>
+
+          <!-- Quote Card -->
+          <div class="glass-card quote-card">
+            <div class="card-label">Daily Transmission</div>
+            <div class="quote-text" id="dailyQuote"></div>
+            <div class="quote-source" id="quoteSource"></div>
+          </div>
+
+          <!-- Goals Card -->
+          <div class="glass-card goals-card">
+            <div class="card-label">Active Goals</div>
+            <ul class="goals-list" id="goalsList"></ul>
+            <button class="btn-glass-sm" id="addGoalBtn">+ Add Goal</button>
+          </div>
+
+          <!-- Upcoming Card -->
+          <div class="glass-card upcoming-card">
+            <div class="card-label">Upcoming Events</div>
+            <div class="upcoming-list" id="upcomingList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ CALENDAR ═══════════════ -->
+      <section class="section" id="section-calendar">
+        <div class="section-header">
+          <h1 class="section-title">Mission Planner</h1>
+          <div class="cal-controls">
+            <button class="btn-glass-sm" id="calPrev">&#8249;</button>
+            <span class="cal-month-label" id="calMonthLabel"></span>
+            <button class="btn-glass-sm" id="calNext">&#8250;</button>
+          </div>
+        </div>
+
+        <div class="cal-layout">
+          <!-- Month Grid -->
+          <div class="cal-grid-wrap glass-card">
+            <div class="cal-weekdays">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span>
+              <span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+          </div>
+
+          <!-- Day Detail Panel (with inline preset system) -->
+          <div class="day-panel glass-card">
+            <div class="day-panel-header">
+              <h3 id="dayPanelDate">Select a day</h3>
+              <div class="day-panel-actions">
+                <button class="btn-glass-sm" id="addEventBtn">+ Event</button>
+              </div>
+            </div>
+
+            <!-- Preset indicator (when preset exists for this weekday) -->
+            <div class="preset-indicator" id="presetIndicator" style="display:none">
+              <div class="preset-indicator-bar">
+                <span class="preset-badge" id="presetBadge"></span>
+                <button class="btn-glass-sm" id="presetToggleBtn">View Preset</button>
+              </div>
+            </div>
+
+            <!-- Apply Preset CTA (empty day + preset exists) -->
+            <div class="preset-apply-cta" id="presetApplyCta" style="display:none">
+              <button class="btn-primary preset-apply-big" id="applyPresetCta"></button>
+            </div>
+
+            <div class="day-timeline" id="dayTimeline">
+              <div class="empty-state">Click a day to view schedule</div>
+            </div>
+
+            <!-- Save as Preset footer -->
+            <div class="day-panel-footer" id="dayPanelFooter" style="display:none">
+              <button class="btn-glass-sm" id="saveAsPresetBtn">&#128190; Save as Preset</button>
+            </div>
+
+            <!-- Inline Preset Editor -->
+            <div class="preset-inline" id="presetInline" style="display:none">
+              <div class="preset-inline-header">
+                <h4 id="presetInlineTitle">Preset</h4>
+                <button class="btn-close" id="closePresetInline">&#10005;</button>
+              </div>
+              <div class="preset-events" id="presetEvents"></div>
+              <button class="btn-glass-sm" id="addPresetEventBtn">+ Add to Preset</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ PRODUCTIVITY PROTOCOL ═══════════════ -->
+      <section class="section" id="section-productivity">
+        <div class="section-header">
+          <h1 class="section-title">Productivity Protocol</h1>
+          <div class="protocol-controls">
+            <button class="btn-glass-sm active-tab" data-tab="tracker" id="tabTracker">Tracker</button>
+            <button class="btn-glass-sm" data-tab="heatmap" id="tabHeatmap">Heatmap</button>
+            <button class="btn-glass-sm" data-tab="stats" id="tabStats">Stats</button>
+          </div>
+        </div>
+
+        <!-- Daily Check-In Form -->
+        <div class="checkin-form glass-card" id="checkinForm">
+          <h3 class="checkin-title">Today's Productivity Check-In</h3>
+          <div class="checkin-date" id="checkinDate"></div>
+          <div class="categories-grid" id="categoriesGrid"></div>
+          <div class="overall-score">
+            <div class="score-label">Overall Score</div>
+            <div class="score-slider-wrap">
+              <input type="range" min="1" max="10" value="5" class="score-slider" id="overallScore" />
+              <span class="score-value" id="scoreValue">5</span>
+            </div>
+          </div>
+          <textarea class="glass-input journal-input" id="journalInput" placeholder="Quick reflection... What went well? What to improve?"></textarea>
+          <button class="btn-primary" id="submitCheckin">Submit Check-In</button>
+          <div class="checkin-status" id="checkinStatus"></div>
+        </div>
+
+        <!-- Tracker Tab -->
+        <div class="tab-content active" id="tab-tracker">
+          <div class="streak-stats glass-card">
+            <div class="stat-item">
+              <div class="stat-num" id="statCurrent">0</div>
+              <div class="stat-label">Current Streak</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num" id="statLongest">0</div>
+              <div class="stat-label">Longest Streak</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num" id="statTotal">0</div>
+              <div class="stat-label">Total Check-ins</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num" id="statAvgScore">&#8212;</div>
+              <div class="stat-label">Avg Score</div>
+            </div>
+          </div>
+          <div class="recent-logs glass-card">
+            <h3>Recent Logs</h3>
+            <div class="logs-list" id="logsList"></div>
+          </div>
+        </div>
+
+        <!-- Heatmap Tab -->
+        <div class="tab-content" id="tab-heatmap">
+          <div class="heatmap-wrap glass-card">
+            <h3>Activity Heatmap</h3>
+            <div class="heatmap-grid" id="heatmapGrid"></div>
+            <div class="heatmap-legend">
+              <span>Less</span>
+              <div class="legend-cells"></div>
+              <span>More</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div class="tab-content" id="tab-stats">
+          <div class="stats-grid">
+            <div class="glass-card category-chart" id="categoryChart">
+              <h3>Category Breakdown</h3>
+              <div class="bar-chart" id="barChart"></div>
+            </div>
+            <div class="glass-card weekly-chart">
+              <h3>7-Day Trend</h3>
+              <div class="line-chart" id="lineChart"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ STUDY MODE ═══════════════ -->
+      <section class="section" id="section-study">
+        <div class="study-mode-wrap">
+          <!-- Main: Timer + Tasks -->
+          <div class="study-main">
+            <div class="glass-card pomodoro-card">
+              <div class="timer-mode-tabs">
+                <button class="timer-tab active" data-mode="focus">Focus</button>
+                <button class="timer-tab" data-mode="short">Short Break</button>
+                <button class="timer-tab" data-mode="long">Long Break</button>
+              </div>
+              <div class="timer-hero">
+                <div class="timer-glow"></div>
+                <svg class="timer-ring" viewBox="0 0 200 200">
+                  <circle class="timer-ring-bg" cx="100" cy="100" r="90"
+                          fill="none" stroke-width="4" />
+                  <circle class="timer-ring-progress" id="timerRing" cx="100" cy="100" r="90"
+                          fill="none" stroke-width="4"
+                          stroke-dasharray="565.49" stroke-dashoffset="0"
+                          transform="rotate(-90 100 100)" />
+                </svg>
+                <div class="timer-display" id="timerDisplay">25:00</div>
+              </div>
+              <div class="timer-label" id="timerLabel">Ready to focus?</div>
+              <div class="timer-controls">
+                <button class="timer-btn" id="timerStart">&#9654; Start</button>
+                <button class="timer-btn" id="timerReset">&#8634; Reset</button>
+              </div>
+              <div class="pomodoro-count">
+                <span class="pom-label">Pomodoros today:</span>
+                <span class="pom-num" id="pomCount">0</span>
+                <div class="pom-dots" id="pomDots"></div>
+              </div>
+            </div>
+
+            <div class="glass-card session-tasks">
+              <h3>Session Tasks</h3>
+              <div class="task-input-row">
+                <input type="text" class="glass-input task-input" id="sessionTaskInput"
+                       placeholder="Add a task for this session..." />
+                <button class="btn-glass-sm" id="addSessionTask">+</button>
+              </div>
+              <ul class="session-task-list" id="sessionTaskList"></ul>
+            </div>
+          </div>
+
+          <!-- Side: Atmosphere + Spotify + Quote + Stats -->
+          <div class="study-side">
+            <div class="glass-card ambient-panel">
+              <h3>Atmosphere</h3>
+              <div class="ambient-sounds" id="ambientSounds">
+                <button class="sound-btn active" data-sound="cafe">&#9749; Cafe</button>
+                <button class="sound-btn" data-sound="rain">&#127783;&#65039; Rain</button>
+                <button class="sound-btn" data-sound="lofi">&#127925; Lo-Fi</button>
+                <button class="sound-btn" data-sound="space">&#128640; Space</button>
+                <button class="sound-btn" data-sound="forest">&#127807; Forest</button>
+              </div>
+              <div class="volume-control">
+                <span>&#128264;</span>
+                <input type="range" min="0" max="100" value="40" id="volumeSlider" />
+                <span>&#128266;</span>
+              </div>
+              <div class="study-atmosphere" id="studyAtmosphere">
+                <div class="atmosphere-visual" id="atmosphereVisual"></div>
+              </div>
+            </div>
+
+            <div class="glass-card spotify-card">
+              <h3>&#127911; Spotify</h3>
+              <div class="spotify-embed-wrap" id="spotifyEmbedWrap">
+                <iframe id="spotifyIframe"
+                  src="https://open.spotify.com/embed/playlist/0vvXsWCC9xrXsKd4FyS8kM?utm_source=generator&theme=0"
+                  width="100%" height="152" frameborder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"></iframe>
+              </div>
+              <div class="spotify-url-row">
+                <input type="text" class="glass-input spotify-url-input" id="spotifyUrlInput"
+                       placeholder="Paste Spotify link..." />
+                <button class="btn-glass-sm spotify-url-btn" id="spotifyLoadBtn">Load</button>
+              </div>
+            </div>
+
+            <div class="glass-card study-quote">
+              <div class="sq-text" id="studyQuote"></div>
+              <div class="sq-source" id="studyQuoteSource"></div>
+              <button class="btn-glass-sm" id="newQuoteBtn">New Quote</button>
+            </div>
+
+            <div class="glass-card study-stats-mini">
+              <div class="mini-stat">
+                <div class="ms-num" id="studyTime">0h 0m</div>
+                <div class="ms-label">Today's Study Time</div>
+              </div>
+              <div class="mini-stat">
+                <div class="ms-num" id="studyStreak">0</div>
+                <div class="ms-label">Study Streak</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ SETTINGS / THEMES ═══════════════ -->
+      <section class="section" id="section-settings">
+        <div class="section-header">
+          <h1 class="section-title">Customize Your HQ</h1>
+        </div>
+        <div class="settings-grid">
+          <div class="glass-card theme-card">
+            <h3>Fandom Theme</h3>
+            <div class="theme-grid" id="themeGrid">
+              <button class="theme-btn" data-theme="f1">
+                <div class="theme-preview f1-preview"></div>
+                <span>Formula 1</span>
+              </button>
+              <button class="theme-btn" data-theme="starwars">
+                <div class="theme-preview starwars-preview"></div>
+                <span>Star Wars</span>
+              </button>
+              <button class="theme-btn" data-theme="southpark">
+                <div class="theme-preview southpark-preview"></div>
+                <span>South Park</span>
+              </button>
+              <button class="theme-btn" data-theme="mha">
+                <div class="theme-preview mha-preview"></div>
+                <span>My Hero Academia</span>
+              </button>
+              <button class="theme-btn active" data-theme="evangelion">
+                <div class="theme-preview evangelion-preview"></div>
+                <span>Evangelion</span>
+              </button>
+              <button class="theme-btn" data-theme="avatar">
+                <div class="theme-preview avatar-preview"></div>
+                <span>Avatar</span>
+              </button>
+              <button class="theme-btn" data-theme="gundam">
+                <div class="theme-preview gundam-preview"></div>
+                <span>Gundam</span>
+              </button>
+            </div>
+          </div>
+          <div class="glass-card productivity-settings">
+            <h3>Productivity Settings</h3>
+            <div class="setting-row">
+              <label>Daily Goal Score</label>
+              <input type="number" class="glass-input setting-input" id="goalScore" min="1" max="10" value="7" />
+            </div>
+            <div class="setting-row">
+              <label>Focus Duration (min)</label>
+              <input type="number" class="glass-input setting-input" id="focusDuration" min="5" max="90" value="25" />
+            </div>
+            <div class="setting-row">
+              <label>Short Break (min)</label>
+              <input type="number" class="glass-input setting-input" id="shortBreak" min="1" max="30" value="5" />
+            </div>
+            <div class="setting-row">
+              <label>Long Break (min)</label>
+              <input type="number" class="glass-input setting-input" id="longBreak" min="5" max="60" value="15" />
+            </div>
+            <div class="setting-row">
+              <label>Productivity Categories</label>
+              <div class="cat-tags" id="catTags"></div>
+              <button class="btn-glass-sm" id="addCatBtn">+ Category</button>
+            </div>
+            <button class="btn-primary" id="saveSettings">Save Settings</button>
+          </div>
+
+          <!-- Background Customization Card -->
+          <div class="glass-card bg-settings-card">
+            <h3>Background</h3>
+            <div class="setting-row">
+              <label>Orb Shape</label>
+              <div class="toggle-group" id="orbShapeGroup">
+                <button class="toggle-btn active" data-val="circle">Circle</button>
+                <button class="toggle-btn" data-val="blob">Blob</button>
+                <button class="toggle-btn" data-val="square">Square</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>Orb Size</label>
+              <div class="toggle-group" id="orbSizeGroup">
+                <button class="toggle-btn" data-val="small">Small</button>
+                <button class="toggle-btn active" data-val="medium">Medium</button>
+                <button class="toggle-btn" data-val="large">Large</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>Orb Speed</label>
+              <div class="toggle-group" id="orbSpeedGroup">
+                <button class="toggle-btn" data-val="slow">Slow</button>
+                <button class="toggle-btn active" data-val="normal">Normal</button>
+                <button class="toggle-btn" data-val="fast">Fast</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>Star Count: <span id="starCountVal">120</span></label>
+              <input type="range" min="50" max="200" value="120" id="starCountSlider" />
+            </div>
+            <div class="setting-row">
+              <label>Star Speed: <span id="starSpeedVal">1.0</span>x</label>
+              <input type="range" min="5" max="20" value="10" id="starSpeedSlider" />
+            </div>
+            <div class="setting-row">
+              <label>Orb Colors</label>
+              <div class="color-pickers">
+                <div class="color-pick-wrap">
+                  <input type="color" id="orbColor1" class="color-picker" value="#7c3aed" />
+                  <span class="color-label">Orb 1</span>
+                </div>
+                <div class="color-pick-wrap">
+                  <input type="color" id="orbColor2" class="color-picker" value="#06b6d4" />
+                  <span class="color-label">Orb 2</span>
+                </div>
+                <div class="color-pick-wrap">
+                  <input type="color" id="orbColor3" class="color-picker" value="#10b981" />
+                  <span class="color-label">Orb 3</span>
+                </div>
+                <button class="btn-glass-sm" id="resetOrbColors">Reset to Theme</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ═══ MODALS ═══ -->
+
+  <!-- Add Event Modal -->
+  <div class="modal-overlay" id="eventModal" style="display:none">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h3 id="eventModalTitle">Add Event</h3>
+        <button class="btn-close" id="closeEventModal">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="glass-input" id="eventTitle" placeholder="Event title" />
+        <div class="time-row">
+          <input type="time" class="glass-input" id="eventStart" value="08:00" />
+          <span>to</span>
+          <input type="time" class="glass-input" id="eventEnd" value="09:00" />
+        </div>
+        <select class="glass-input" id="eventCategory">
+          <option value="study">&#128218; Study</option>
+          <option value="exercise">&#128170; Exercise</option>
+          <option value="school">&#127979; School</option>
+          <option value="personal">&#127918; Personal</option>
+          <option value="sleep">&#128564; Sleep</option>
+          <option value="meal">&#127836; Meal</option>
+        </select>
+        <textarea class="glass-input" id="eventNotes" placeholder="Notes (optional)"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-glass" id="cancelEvent">Cancel</button>
+        <button class="btn-primary" id="saveEvent">Save Event</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Goal Modal -->
+  <div class="modal-overlay" id="goalModal" style="display:none">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h3>Add Goal</h3>
+        <button class="btn-close" id="closeGoalModal">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="glass-input" id="goalText" placeholder="e.g. Study 3 hours daily" />
+        <select class="glass-input" id="goalType">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-glass" id="cancelGoal">Cancel</button>
+        <button class="btn-primary" id="saveGoal">Add Goal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/productivity.js"></script>
+  <script src="js/study.js"></script>
+</body>
+</html>
