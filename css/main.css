@@ -787,11 +787,15 @@ body {
 .cat-score-wrap { display: flex; align-items: center; gap: 0.4rem; }
 .cat-score-wrap input[type="range"] { flex: 1; }
 .cat-score-num { font-size: 0.78rem; color: var(--accent); font-weight: 600; min-width: 16px; }
-.overall-score { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
-.score-label { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; }
-.score-slider-wrap { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
-.score-slider { flex: 1; }
-.score-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); min-width: 28px; }
+.overall-computed {
+  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem;
+  padding: 0.6rem 0.8rem; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.computed-label { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; }
+.computed-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+.computed-hint { font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
 .journal-input { min-height: 80px; resize: vertical; margin-bottom: 0.75rem; }
 .checkin-status { font-size: 0.82rem; color: var(--success); margin-top: 0.5rem; text-align: center; min-height: 1.2rem; }
 
@@ -809,15 +813,22 @@ body {
 .recent-logs h3 { margin-bottom: 0.75rem; font-family: 'Space Grotesk', sans-serif; }
 .logs-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .log-item {
-  display: flex; align-items: center; gap: 0.75rem;
+  display: flex; flex-direction: column; gap: 0.3rem;
   padding: 0.65rem; border-radius: var(--radius-sm);
   background: rgba(255,255,255,0.03); font-size: 0.82rem;
   border: 1px solid var(--glass-border);
 }
+.log-top-row { display: flex; align-items: center; gap: 0.75rem; }
 .log-date { color: var(--text-muted); min-width: 90px; font-size: 0.75rem; }
 .log-score { font-weight: 700; color: var(--accent); min-width: 28px; text-align: center; }
 .log-note { color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log-streak-mark { color: #f59e0b; font-size: 0.9rem; }
+.log-cats { display: flex; flex-wrap: wrap; gap: 0.3rem; padding-top: 0.15rem; }
+.log-cat-pill {
+  font-size: 0.65rem; padding: 0.12rem 0.45rem; border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-secondary);
+}
 
 /* Heatmap */
 .heatmap-wrap h3 { margin-bottom: 1rem; font-family: 'Space Grotesk', sans-serif; }
@@ -850,6 +861,25 @@ body {
 .line-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; flex: 1; }
 .line-bar { width: 100%; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--accent), var(--accent2)); min-height: 2px; transition: height 0.5s ease; }
 .line-bar-label { font-size: 0.62rem; color: var(--text-muted); }
+
+/* Per-category trends */
+.category-trends-card { grid-column: 1 / -1; }
+.category-trends { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+.cat-trend-card {
+  padding: 0.6rem; border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+}
+.cat-trend-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.cat-trend-name { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; }
+.cat-trend-avg { font-size: 0.72rem; color: var(--accent); font-weight: 700; }
+.cat-trend-bars { display: flex; align-items: flex-end; gap: 3px; height: 55px; }
+.trend-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+.trend-bar {
+  width: 100%; border-radius: 3px 3px 0 0; min-height: 3px;
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  transition: height 0.4s ease;
+}
+.trend-day { font-size: 0.55rem; color: var(--text-muted); }
 
 /* Category tags in settings */
 .cat-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }

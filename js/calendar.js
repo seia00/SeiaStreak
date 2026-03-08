@@ -347,7 +347,12 @@ const CalendarModule = (() => {
     });
   }
 
-  document.addEventListener('DOMContentLoaded', bindButtons);
+  document.addEventListener('DOMContentLoaded', () => {
+    bindButtons();
+    // Select today and render calendar immediately
+    selectedDate = new Date();
+    renderMonth();
+  });
 
   return { render, deleteEvent, deletePresetEvent, openEventModal, saveAsPreset };
 })();

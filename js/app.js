@@ -89,7 +89,8 @@ function initStarfield() {
     stars.forEach(s => {
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${s.o})`;
+      const isLight = document.body.getAttribute('data-mode') === 'light';
+      ctx.fillStyle = isLight ? `rgba(0,0,0,${s.o})` : `rgba(255,255,255,${s.o})`;
       ctx.fill();
       s.y += s.speed;
       s.x += s.drift;

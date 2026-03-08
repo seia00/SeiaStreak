@@ -36,8 +36,8 @@ const SS = {
     },
     checkins: {},     // { 'YYYY-MM-DD': { overall, categories: {}, note, ts } }
     sessionTasks: [], // [{ id, text, done }]
-    pomCount: 0,
-    studyTime: 0,     // minutes today
+    pomCounts: {},     // { 'YYYY-MM-DD': number }
+    studyTimes: {},    // { 'YYYY-MM-DD': minutes }
     mode: 'dark',     // 'dark' | 'light'
     bgConfig: {
       shape: 'circle',       // 'circle' | 'blob' | 'square'

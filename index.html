@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="favicon.png" />
   <title>SEIASTREAK</title>
   <link rel="stylesheet" href="css/main.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -220,12 +221,10 @@
           <h3 class="checkin-title">Today's Productivity Check-In</h3>
           <div class="checkin-date" id="checkinDate"></div>
           <div class="categories-grid" id="categoriesGrid"></div>
-          <div class="overall-score">
-            <div class="score-label">Overall Score</div>
-            <div class="score-slider-wrap">
-              <input type="range" min="1" max="10" value="5" class="score-slider" id="overallScore" />
-              <span class="score-value" id="scoreValue">5</span>
-            </div>
+          <div class="overall-computed" id="overallComputed">
+            <span class="computed-label">Overall Score:</span>
+            <span class="computed-value" id="computedScore">—</span>
+            <span class="computed-hint">(auto-calculated from categories)</span>
           </div>
           <textarea class="glass-input journal-input" id="journalInput" placeholder="Quick reflection... What went well? What to improve?"></textarea>
           <button class="btn-primary" id="submitCheckin">Submit Check-In</button>
@@ -275,12 +274,16 @@
         <div class="tab-content" id="tab-stats">
           <div class="stats-grid">
             <div class="glass-card category-chart" id="categoryChart">
-              <h3>Category Breakdown</h3>
+              <h3>Category Averages</h3>
               <div class="bar-chart" id="barChart"></div>
             </div>
             <div class="glass-card weekly-chart">
-              <h3>7-Day Trend</h3>
+              <h3>7-Day Overall Trend</h3>
               <div class="line-chart" id="lineChart"></div>
+            </div>
+            <div class="glass-card category-trends-card">
+              <h3>Per-Category Trends (7 Days)</h3>
+              <div class="category-trends" id="categoryTrends"></div>
             </div>
           </div>
         </div>

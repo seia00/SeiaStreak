@@ -14,6 +14,7 @@ const StudyModule = (() => {
   let audioCtx = null;
   let soundNodes = [];
   let pomodorosToday = 0;
+  let focusSecondsAccum = 0; // tracks seconds since last study time save
 
   // ── Study Quotes ──────────────────────────────────
   const STUDY_QUOTES = [
@@ -64,9 +65,12 @@ const StudyModule = (() => {
   }
 
   function setTimerMode(mode) {
+    // Save any accumulated focus time before switching
+    if (timerMode === 'focus') saveFocusAccum();
     timerMode = mode;
     timerRunning = false;
     clearInterval(timerInterval);
+    focusSecondsAccum = 0;
 
     const durations = getDurations();
     timerSeconds = durations[mode];
@@ -81,10 +85,20 @@ const StudyModule = (() => {
     document.getElementById('timerStart').textContent = '\u25B6 Start';
   }
 
+  function saveFocusAccum() {
+    if (focusSecondsAccum > 0) {
+      SS.addStudyTime(todayStr(), focusSecondsAccum / 60);
+      focusSecondsAccum = 0;
+      updateStudyStats();
+    }
+  }
+
   function startTimer() {
     if (timerRunning) {
+      // Pausing — save accumulated focus time
       timerRunning = false;
       clearInterval(timerInterval);
+      if (timerMode === 'focus') saveFocusAccum();
       document.getElementById('timerStart').textContent = '\u25B6 Resume';
       document.getElementById('timerLabel').textContent = 'Paused';
       pauseAudio();
@@ -100,6 +114,16 @@ const StudyModule = (() => {
       timerSeconds--;
       updateTimerDisplay();
 
+      // Track every second of focus time, save each minute
+      if (timerMode === 'focus') {
+        focusSecondsAccum++;
+        if (focusSecondsAccum >= 60) {
+          SS.addStudyTime(todayStr(), 1);
+          focusSecondsAccum = 0;
+          updateStudyStats();
+        }
+      }
+
       if (timerSeconds <= 0) {
         clearInterval(timerInterval);
         timerRunning = false;
@@ -109,6 +133,8 @@ const StudyModule = (() => {
   }
 
   function resetTimer() {
+    // Save any accumulated focus time before resetting
+    if (timerMode === 'focus') saveFocusAccum();
     timerRunning = false;
     clearInterval(timerInterval);
     const durations = getDurations();
@@ -121,10 +147,10 @@ const StudyModule = (() => {
 
   function timerComplete() {
     if (timerMode === 'focus') {
+      // Save any remaining partial-minute focus time
+      saveFocusAccum();
       pomodorosToday++;
-      const today = todayStr();
-      SS.setPomCount(today, pomodorosToday);
-      SS.addStudyTime(today, getDurations().focus / 60);
+      SS.setPomCount(todayStr(), pomodorosToday);
       renderPomodoroDots();
       updateStudyStats();
       showToast(`Pomodoro ${pomodorosToday} complete! Take a break!`, 4000);
@@ -186,153 +212,194 @@ const StudyModule = (() => {
     osc.start(); osc.stop(audioCtx.currentTime + 1);
   }
 
-  // ── Sound Generators ──────────────────────────────
+  // ── Sound Generators (v3 — softer, cozier) ───────
   const SOUNDS = {
     cafe(ctx, nodes, vol) {
-      const bufLen = ctx.sampleRate * 3;
-      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.015;
+      // Warm brown noise for cafe ambience
+      const bufLen = ctx.sampleRate * 4;
+      const buf = ctx.createBuffer(2, bufLen, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buf.getChannelData(ch);
+        let last = 0;
+        for (let i = 0; i < bufLen; i++) {
+          const white = Math.random() * 2 - 1;
+          // Brown noise: integrate white noise
+          last = (last + (0.02 * white)) / 1.02;
+          data[i] = last * 3.5;
+        }
+      }
       const src = ctx.createBufferSource();
       src.buffer = buf; src.loop = true;
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass'; filter.frequency.value = 300; filter.Q.value = 0.5;
-      const gain = ctx.createGain(); gain.gain.value = vol * 0.5;
-      src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 500; lp.Q.value = 0.7;
+      const gain = ctx.createGain(); gain.gain.value = vol * 0.35;
+      src.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
       src.start(); nodes.push(src);
 
+      // Gentle occasional ceramic clink
       function clink() {
         if (!nodes.includes(src)) return;
         const o = ctx.createOscillator();
         const g = ctx.createGain();
+        o.type = 'sine';
         o.connect(g); g.connect(ctx.destination);
-        o.frequency.value = 2000 + Math.random() * 500;
-        g.gain.setValueAtTime(vol * 0.04, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-        o.start(); o.stop(ctx.currentTime + 0.15);
-        setTimeout(clink, 3000 + Math.random() * 8000);
+        o.frequency.value = 3000 + Math.random() * 1000;
+        g.gain.setValueAtTime(vol * 0.015, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        o.start(); o.stop(ctx.currentTime + 0.08);
+        setTimeout(clink, 5000 + Math.random() * 12000);
       }
-      setTimeout(clink, 1000);
+      setTimeout(clink, 3000);
     },
 
     rain(ctx, nodes, vol) {
-      const bufLen = ctx.sampleRate * 2;
-      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.1;
+      // Soft rain: filtered pink noise
+      const bufLen = ctx.sampleRate * 4;
+      const buf = ctx.createBuffer(2, bufLen, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buf.getChannelData(ch);
+        let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+        for (let i = 0; i < bufLen; i++) {
+          const white = Math.random() * 2 - 1;
+          // Pink noise approximation (Paul Kellet's)
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.06;
+          b6 = white * 0.115926;
+        }
+      }
       const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const filter = ctx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1000;
-      const gain = ctx.createGain(); gain.gain.value = vol * 0.4;
-      src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 800; bp.Q.value = 0.4;
+      const gain = ctx.createGain(); gain.gain.value = vol * 0.3;
+      src.connect(bp); bp.connect(gain); gain.connect(ctx.destination);
       src.start(); nodes.push(src);
 
-      const bufL = ctx.sampleRate * 4;
-      const bufR = ctx.createBuffer(1, bufL, ctx.sampleRate);
-      const dR = bufR.getChannelData(0);
-      for (let i = 0; i < bufL; i++) dR[i] = (Math.random() * 2 - 1) * 0.02;
-      const src2 = ctx.createBufferSource(); src2.buffer = bufR; src2.loop = true;
-      const fil2 = ctx.createBiquadFilter(); fil2.type = 'lowpass'; fil2.frequency.value = 150;
-      const g2 = ctx.createGain(); g2.gain.value = vol * 0.25;
-      src2.connect(fil2); fil2.connect(g2); g2.connect(ctx.destination);
-      src2.start(); nodes.push(src2);
+      // Deep rumble layer (distant thunder)
+      const bufD = ctx.createBuffer(1, ctx.sampleRate * 6, ctx.sampleRate);
+      const dD = bufD.getChannelData(0);
+      let prev = 0;
+      for (let i = 0; i < dD.length; i++) {
+        prev = (prev + (Math.random() * 2 - 1) * 0.01) / 1.01;
+        dD[i] = prev * 2;
+      }
+      const srcD = ctx.createBufferSource(); srcD.buffer = bufD; srcD.loop = true;
+      const lpD = ctx.createBiquadFilter(); lpD.type = 'lowpass'; lpD.frequency.value = 100;
+      const gD = ctx.createGain(); gD.gain.value = vol * 0.15;
+      srcD.connect(lpD); lpD.connect(gD); gD.connect(ctx.destination);
+      srcD.start(); nodes.push(srcD);
     },
 
     lofi(ctx, nodes, vol) {
-      const bpm = 80;
-      const beat = 60 / bpm;
+      // Gentle warm drone with slow chord changes instead of harsh beats
+      const chords = [
+        [261.6, 329.6, 392.0], // C major
+        [220.0, 277.2, 329.6], // A minor
+        [246.9, 311.1, 370.0], // B dim approx
+        [196.0, 246.9, 293.7], // G major
+      ];
+      const chord = chords[Math.floor(Math.random() * chords.length)];
 
-      function kick(time) {
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.setValueAtTime(150, time);
-        o.frequency.exponentialRampToValueAtTime(40, time + 0.1);
-        g.gain.setValueAtTime(vol * 0.5, time);
-        g.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
-        o.start(time); o.stop(time + 0.25);
-      }
-
-      function snare(time) {
-        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
-        const src = ctx.createBufferSource(); src.buffer = buf;
-        const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1200;
-        const g = ctx.createGain(); g.gain.value = vol * 0.3;
-        src.connect(filter); filter.connect(g); g.connect(ctx.destination);
-        src.start(time); nodes.push(src);
-      }
-
-      function hihat(time) {
-        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
-        const src = ctx.createBufferSource(); src.buffer = buf;
-        const filter = ctx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 7000;
-        const g = ctx.createGain(); g.gain.value = vol * 0.1;
-        src.connect(filter); filter.connect(g); g.connect(ctx.destination);
-        src.start(time); nodes.push(src);
-      }
-
-      const now = ctx.currentTime + 0.1;
-      for (let bar = 0; bar < 8; bar++) {
-        const t = now + bar * beat * 4;
-        kick(t); kick(t + beat * 2);
-        snare(t + beat); snare(t + beat * 3);
-        for (let h = 0; h < 4; h++) { hihat(t + beat * h); hihat(t + beat * h + beat/2); }
-      }
-
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = 220;
-      g.gain.value = vol * 0.05;
-      osc.connect(g); g.connect(ctx.destination);
-      osc.start(); nodes.push(osc);
-    },
-
-    space(ctx, nodes, vol) {
-      [55, 110, 220].forEach((freq, i) => {
+      chord.forEach((freq, i) => {
         const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq / 2; // lower octave for warmth
         const gain = ctx.createGain();
-        osc.type = 'sine'; osc.frequency.value = freq;
-        gain.gain.value = vol * [0.15, 0.08, 0.04][i];
-        osc.connect(gain); gain.connect(ctx.destination);
+        gain.gain.value = vol * 0.06;
+        // Warm filter
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 400;
+        osc.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
         osc.start(); nodes.push(osc);
       });
-      const lfo = ctx.createOscillator();
-      lfo.frequency.value = 0.05;
-      const lfoGain = ctx.createGain(); lfoGain.gain.value = 20;
-      lfo.connect(lfoGain);
-      nodes[0] && lfoGain.connect(nodes[0].frequency);
-      lfo.start(); nodes.push(lfo);
-    },
 
-    forest(ctx, nodes, vol) {
+      // Soft vinyl crackle
       const bufLen = ctx.sampleRate * 3;
       const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
       const data = buf.getChannelData(0);
-      for (let i = 0; i < bufLen; i++) data[i] = (Math.random()*2-1) * 0.06;
+      for (let i = 0; i < bufLen; i++) {
+        data[i] = Math.random() < 0.002 ? (Math.random() * 0.3 - 0.15) : (Math.random() * 2 - 1) * 0.003;
+      }
       const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 600; filter.Q.value = 0.3;
-      const gain = ctx.createGain(); gain.gain.value = vol * 0.4;
-      src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2000;
+      const g = ctx.createGain(); g.gain.value = vol * 0.12;
+      src.connect(hp); hp.connect(g); g.connect(ctx.destination);
+      src.start(); nodes.push(src);
+    },
+
+    space(ctx, nodes, vol) {
+      // Deep cosmic drone — very low, gentle, ethereal
+      [55, 82.4, 110].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        gain.gain.value = vol * [0.08, 0.05, 0.03][i];
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 200;
+        osc.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
+        osc.start(); nodes.push(osc);
+      });
+
+      // Slow LFO for gentle pulsing
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine'; lfo.frequency.value = 0.03;
+      const lfoGain = ctx.createGain(); lfoGain.gain.value = 8;
+      lfo.connect(lfoGain);
+      if (nodes[0]) lfoGain.connect(nodes[0].frequency);
+      lfo.start(); nodes.push(lfo);
+
+      // Subtle cosmic shimmer
+      const bufLen = ctx.sampleRate * 5;
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.008;
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 4000; bp.Q.value = 2;
+      const g = ctx.createGain(); g.gain.value = vol * 0.06;
+      src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+      src.start(); nodes.push(src);
+    },
+
+    forest(ctx, nodes, vol) {
+      // Gentle wind through leaves — brown noise with soft bandpass
+      const bufLen = ctx.sampleRate * 5;
+      const buf = ctx.createBuffer(2, bufLen, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buf.getChannelData(ch);
+        let last = 0;
+        for (let i = 0; i < bufLen; i++) {
+          last = (last + (Math.random() * 2 - 1) * 0.02) / 1.02;
+          data[i] = last * 2.5;
+        }
+      }
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 400; bp.Q.value = 0.5;
+      const gain = ctx.createGain(); gain.gain.value = vol * 0.25;
+      src.connect(bp); bp.connect(gain); gain.connect(ctx.destination);
       src.start(); nodes.push(src);
 
+      // Gentle bird chirps — quieter, less frequent
       function bird() {
         if (!nodes.includes(src)) return;
         const o = ctx.createOscillator();
         const g = ctx.createGain();
         o.type = 'sine'; o.connect(g); g.connect(ctx.destination);
-        const baseFreq = 1200 + Math.random() * 800;
-        o.frequency.setValueAtTime(baseFreq, ctx.currentTime);
-        o.frequency.linearRampToValueAtTime(baseFreq * 1.3, ctx.currentTime + 0.1);
-        o.frequency.linearRampToValueAtTime(baseFreq, ctx.currentTime + 0.2);
-        g.gain.setValueAtTime(vol * 0.06, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        o.start(); o.stop(ctx.currentTime + 0.3);
-        setTimeout(bird, 2000 + Math.random() * 6000);
+        const baseFreq = 1800 + Math.random() * 600;
+        const t = ctx.currentTime;
+        o.frequency.setValueAtTime(baseFreq, t);
+        o.frequency.linearRampToValueAtTime(baseFreq * 1.15, t + 0.06);
+        o.frequency.linearRampToValueAtTime(baseFreq * 0.95, t + 0.12);
+        g.gain.setValueAtTime(vol * 0.025, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        o.start(); o.stop(t + 0.18);
+        setTimeout(bird, 4000 + Math.random() * 10000);
       }
-      setTimeout(bird, 500);
+      setTimeout(bird, 2000);
     }
   };
 
@@ -565,7 +632,7 @@ const StudyModule = (() => {
 
     pomodorosToday = SS.getPomCount(todayStr());
     renderPomodoroDots();
-    updateTimerDisplay();
+    setTimerMode('focus'); // loads saved focus duration from settings
     renderSessionTasks();
     updateStudyStats();
     renderStudyQuote();

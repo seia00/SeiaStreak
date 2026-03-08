@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════
    SEIASTREAK — Productivity Protocol Module
+   v3: Per-category scoring, computed overall, per-category stats
    ═══════════════════════════════════════════════════ */
 
 const ProductivityModule = (() => {
@@ -11,6 +12,21 @@ const ProductivityModule = (() => {
     renderCheckinForm();
     renderTabContent();
     updateStreakStats();
+  }
+
+  // ── Compute overall from category sliders ─────────
+  function computeOverall() {
+    const sliders = document.querySelectorAll('.cat-slider');
+    if (!sliders.length) return 5;
+    let sum = 0;
+    sliders.forEach(s => { sum += parseInt(s.value); });
+    return Math.round((sum / sliders.length) * 10) / 10;
+  }
+
+  function updateComputedScore() {
+    const score = computeOverall();
+    const el = document.getElementById('computedScore');
+    if (el) el.textContent = score.toFixed(1) + '/10';
   }
 
   // ── Check-In Form ─────────────────────────────────
@@ -33,7 +49,7 @@ const ProductivityModule = (() => {
             <div class="cat-score-wrap">
               <input type="range" min="1" max="10" value="${saved}"
                 class="cat-slider" data-cat="${cat}"
-                oninput="this.nextElementSibling.textContent=this.value" />
+                oninput="this.nextElementSibling.textContent=this.value; ProductivityModule.updateScore()" />
               <span class="cat-score-num">${saved}</span>
             </div>
           </div>
@@ -41,27 +57,19 @@ const ProductivityModule = (() => {
       }).join('');
     }
 
-    // Overall score
-    const overall = existing ? existing.overall : 5;
-    const overallSlider = document.getElementById('overallScore');
-    const scoreVal = document.getElementById('scoreValue');
-    if (overallSlider) {
-      overallSlider.value = overall;
-      if (scoreVal) scoreVal.textContent = overall;
-      overallSlider.oninput = function() {
-        if (scoreVal) scoreVal.textContent = this.value;
-      };
-    }
+    // Update computed overall
+    updateComputedScore();
 
     // Journal
     const journal = document.getElementById('journalInput');
     if (journal && existing) journal.value = existing.note || '';
+    else if (journal && !existing) journal.value = '';
 
     // Status
     const status = document.getElementById('checkinStatus');
     if (status) {
       if (existing) {
-        status.textContent = `✓ Checked in today at score ${existing.overall}/10`;
+        status.textContent = `\u2713 Checked in today at score ${existing.overall}/10`;
         status.style.color = 'var(--success)';
       } else {
         status.textContent = '';
@@ -103,7 +111,7 @@ const ProductivityModule = (() => {
     // Average score
     const checkins = SS.getCheckins();
     const scores = Object.values(checkins).map(c => c.overall).filter(Boolean);
-    const avg = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '—';
+    const avg = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '\u2014';
     document.getElementById('statAvgScore') && (document.getElementById('statAvgScore').textContent = avg);
   }
 
@@ -124,12 +132,19 @@ const ProductivityModule = (() => {
       const d = new Date(ds + 'T12:00:00');
       const inStreak = checkDates && checkDates.has(ds);
       const scoreColor = c.overall >= 8 ? 'var(--success)' : c.overall >= 5 ? 'var(--accent)' : 'var(--danger)';
+      // Show per-category breakdown
+      const catBreakdown = c.categories ? Object.entries(c.categories).map(
+        ([cat, val]) => `<span class="log-cat-pill">${cat}: ${val}</span>`
+      ).join('') : '';
       return `
         <div class="log-item">
-          <span class="log-date">${formatDateShort(d)}</span>
-          <span class="log-score" style="color:${scoreColor}">${c.overall}/10</span>
-          <span class="log-note">${c.note || '—'}</span>
-          ${inStreak ? '<span class="log-streak-mark" title="Part of streak">🔥</span>' : ''}
+          <div class="log-top-row">
+            <span class="log-date">${formatDateShort(d)}</span>
+            <span class="log-score" style="color:${scoreColor}">${c.overall}/10</span>
+            <span class="log-note">${c.note || '\u2014'}</span>
+            ${inStreak ? '<span class="log-streak-mark" title="Part of streak">\uD83D\uDD25</span>' : ''}
+          </div>
+          ${catBreakdown ? `<div class="log-cats">${catBreakdown}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -143,10 +158,8 @@ const ProductivityModule = (() => {
     const grid = document.getElementById('heatmapGrid');
     if (!grid) return;
 
-    // Show 52 weeks (364 days)
     const today = new Date();
     const start = new Date(today.getTime() - 363 * 86400000);
-    // Align to Sunday
     const dayOffset = start.getDay();
     const realStart = new Date(start.getTime() - dayOffset * 86400000);
 
@@ -178,7 +191,6 @@ const ProductivityModule = (() => {
 
     grid.innerHTML = html;
 
-    // Legend
     const legendCells = document.querySelector('.legend-cells');
     if (legendCells) {
       legendCells.innerHTML = [0,1,2,3,4,5].map(l =>
@@ -187,9 +199,10 @@ const ProductivityModule = (() => {
     }
   }
 
-  // ── Stats Tab ─────────────────────────────────────
+  // ── Stats Tab (with per-category breakdown) ───────
   function renderStats() {
     renderBarChart();
+    renderCategoryTrends();
     renderLineChart();
   }
 
@@ -226,6 +239,53 @@ const ProductivityModule = (() => {
     }).join('') || '<div class="empty-state">No category data yet.</div>';
   }
 
+  function renderCategoryTrends() {
+    const el = document.getElementById('categoryTrends');
+    if (!el) return;
+
+    const checkins = SS.getCheckins();
+    const settings = SS.getSettings();
+    const cats = settings.categories || [];
+    const dates = Object.keys(checkins).sort().reverse().slice(0, 7).reverse();
+
+    if (!dates.length) {
+      el.innerHTML = '<div class="empty-state">Check in to see per-category trends.</div>';
+      return;
+    }
+
+    el.innerHTML = cats.map(cat => {
+      const values = dates.map(ds => {
+        const c = checkins[ds];
+        return c && c.categories ? (c.categories[cat] || 0) : 0;
+      });
+      const maxVal = 10;
+      const bars = values.map((v, i) => {
+        const h = Math.max(3, (v / maxVal) * 50);
+        const d = new Date(dates[i] + 'T12:00:00');
+        const dayLabel = d.toLocaleDateString('en-US', { weekday: 'narrow' });
+        return `
+          <div class="trend-bar-wrap">
+            <div class="trend-bar" style="height:${h}px" title="${dates[i]}: ${v}/10"></div>
+            <span class="trend-day">${dayLabel}</span>
+          </div>
+        `;
+      }).join('');
+
+      const vals = values.filter(v => v > 0);
+      const avg = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : '\u2014';
+
+      return `
+        <div class="cat-trend-card">
+          <div class="cat-trend-header">
+            <span class="cat-trend-name">${cat}</span>
+            <span class="cat-trend-avg">${avg}/10</span>
+          </div>
+          <div class="cat-trend-bars">${bars}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
   function renderLineChart() {
     const data = SS.avgScore(7);
     const days = ['S','M','T','W','T','F','S'];
@@ -247,11 +307,16 @@ const ProductivityModule = (() => {
 
   // ── Submit Check-In ───────────────────────────────
   function submitCheckin() {
-    const overall = parseInt(document.getElementById('overallScore').value);
-    const note = document.getElementById('journalInput').value.trim();
     const sliders = document.querySelectorAll('.cat-slider');
     const categories = {};
-    sliders.forEach(s => { categories[s.dataset.cat] = parseInt(s.value); });
+    let sum = 0;
+    sliders.forEach(s => {
+      const val = parseInt(s.value);
+      categories[s.dataset.cat] = val;
+      sum += val;
+    });
+    const overall = sliders.length ? Math.round((sum / sliders.length) * 10) / 10 : 5;
+    const note = document.getElementById('journalInput').value.trim();
 
     const data = { overall, categories, note, ts: Date.now() };
     SS.setCheckin(todayStr(), data);
@@ -262,11 +327,11 @@ const ProductivityModule = (() => {
     renderTracker();
     if (window.renderDashboard) renderDashboard();
 
-    showToast(`Check-in saved! Score: ${overall}/10 🔥`);
+    showToast(`Check-in saved! Score: ${overall}/10 \uD83D\uDD25`);
 
     const { current } = SS.calcStreaks();
     if (current > 0 && current % 7 === 0) {
-      setTimeout(() => showToast(`🏆 ${current} Day Streak! PLUS ULTRA!`, 4000), 1000);
+      setTimeout(() => showToast(`\uD83C\uDFC6 ${current} Day Streak! PLUS ULTRA!`, 4000), 1000);
     }
   }
 
@@ -277,14 +342,9 @@ const ProductivityModule = (() => {
     document.getElementById('tabTracker')?.addEventListener('click', () => switchTab('tracker'));
     document.getElementById('tabHeatmap')?.addEventListener('click', () => switchTab('heatmap'));
     document.getElementById('tabStats')?.addEventListener('click', () => switchTab('stats'));
-
-    // Overall score slider live update
-    document.getElementById('overallScore')?.addEventListener('input', function() {
-      document.getElementById('scoreValue').textContent = this.value;
-    });
   }
 
   document.addEventListener('DOMContentLoaded', bindButtons);
 
-  return { render };
+  return { render, updateScore: updateComputedScore };
 })();
